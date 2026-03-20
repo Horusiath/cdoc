@@ -20,6 +20,5 @@ We achieve non-interleaving variant by producing a sequences of so called `Segme
 `(PID, u32)`, where `PID` is a peer identifier of a peer who appended this segment to a LSeq sequence, while `u32` is
 an incrementally monotonic positive (>0) integer used for ordering.
 
-Since segment sequences live on [path](./object-decomposition.md#path), they cannot have a corresponding `0` bytes inside.
-Additionally, without compression each segment would take at least 8 bytes. For that reason both both PID and sequence
-number are prefix length varint encoded.
+Without compression each segment would take at least 8 bytes. For that reason both PID and sequence number are prefix 
+length varint encoded.

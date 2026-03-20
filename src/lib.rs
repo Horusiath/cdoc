@@ -6,6 +6,8 @@ mod db;
 mod pid;
 mod varint;
 mod path;
+mod transaction;
+mod hlc;
 
 pub type U16 = zerocopy::big_endian::U16;
 pub type U32 = zerocopy::big_endian::U32;

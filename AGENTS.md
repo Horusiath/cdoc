@@ -8,15 +8,18 @@ Your role is a senior distributed systems and database engineer.
 cargo build                    # build. never build with release.
 cargo tests                     # rust unit/integration tests
 cargo fmt                      # format (required)
-cargo clippy --workspace --all-features --all-targets -- --deny=warnings  # lint
+cargo clippy --all-features --all-targets -- --deny=warnings  # lint
 ```
 
 ## Structure
 
+- `./.docs` is a general space where the documentation of specific techniques and algorithms can be found.
 - `./src` is where all the source code lives.
-    - `./sst` is location for SSTables related code
-    - `./wal` is location for Write-Ahead Log related code
+    - `/sst` is location for SSTables related code
+    - `/wal` is location for Write-Ahead Log related code
+    - `/path` is location for object→path decomposition logic.
 - `./tests` is where the integration tests are located.
+- `./benches` is where benchmarks are located.
 
 ## Key principles
 
