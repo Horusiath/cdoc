@@ -14,6 +14,8 @@ pub type U32 = zerocopy::big_endian::U32;
 pub type U64 = zerocopy::big_endian::U64;
 pub type U128 = zerocopy::big_endian::U128;
 
+pub type Result<T> = std::result::Result<T, Error>;
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
@@ -27,5 +29,3 @@ impl<T> From<zerocopy::CastError<&[u8], T>> for Error {
         Error::ZeroCopy
     }
 }
-
-pub type Result<T> = std::result::Result<T, Error>;
