@@ -75,6 +75,7 @@ dependencies = [
  "memmap2",
  "parking_lot",
  "serde",
+ "serde_json",
  "smallvec 2.0.0-alpha.12",
  "tempfile",
  "thiserror",

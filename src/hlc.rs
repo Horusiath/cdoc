@@ -132,4 +132,68 @@ mod tests {
             elapsed
         );
     }
+
+    #[test]
+    fn now_returns_strictly_increasing_timestamps_across_threads() {
+        let thread_count = 8;
+        let per_thread = 1000;
+
+        let handles: Vec<_> = (0..thread_count)
+            .map(|_| {
+                std::thread::spawn(move || {
+                    (0..per_thread).map(|_| Timestamp::now()).collect::<Vec<_>>()
+                })
+            })
+            .collect();
+
+        let mut all: Vec<Timestamp> = Vec::with_capacity(thread_count * per_thread);
+        for handle in handles {
+            let timestamps = handle.join().expect("thread panicked");
+            // each thread's sequence must be strictly monotonic on its own
+            for window in timestamps.windows(2) {
+                assert!(
+                    window[0] < window[1],
+                    "per-thread timestamps must be strictly increasing, got {:?} >= {:?}",
+                    window[0],
+                    window[1]
+                );
+            }
+            all.extend(timestamps);
+        }
+
+        // globally, every timestamp must be unique
+        all.sort();
+        for window in all.windows(2) {
+            assert!(
+                window[0] < window[1],
+                "global timestamps must be unique, got duplicate {:?}",
+                window[0]
+            );
+        }
+    }
+
+    #[test]
+    fn deserialized_future_timestamp_advances_counter() {
+        let before = Timestamp::now();
+
+        // extract the raw u64 via serde, then push it far into the future
+        let raw: u64 = serde_json::to_string(&before)
+            .expect("serialize failed")
+            .parse()
+            .expect("expected u64 string");
+        let future_raw = raw + 100_000;
+
+        // deserialize triggers Timestamp::sync internally
+        let remote: Timestamp =
+            serde_json::from_str(&future_raw.to_string()).expect("deserialize failed");
+
+        let after = Timestamp::now();
+        assert!(
+            after > remote,
+            "timestamp generated after sync must exceed the remote value, \
+             got after={:?}, remote={:?}",
+            after,
+            remote
+        );
+    }
 }
