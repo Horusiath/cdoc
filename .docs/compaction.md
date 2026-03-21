@@ -1,2 +1,0 @@
-# LSM Compaction
-

@@ -15,7 +15,7 @@ serde = { version = "1.0", features = ["derive"] }
 arc-swap = { version = "1.8" }
 parking_lot = { version = "0.12", features = [] }
 chrono = { version = "0.4", features = ["serde"] }
+ciborium = { version = "0.2", features = [] }
 
 [dev-dependencies]
 tempfile = "3"
-serde_json = { version = "1.0", features = [] }

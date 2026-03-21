@@ -141,7 +141,9 @@ mod tests {
         let handles: Vec<_> = (0..thread_count)
             .map(|_| {
                 std::thread::spawn(move || {
-                    (0..per_thread).map(|_| Timestamp::now()).collect::<Vec<_>>()
+                    (0..per_thread)
+                        .map(|_| Timestamp::now())
+                        .collect::<Vec<_>>()
                 })
             })
             .collect();
@@ -177,15 +179,12 @@ mod tests {
         let before = Timestamp::now();
 
         // extract the raw u64 via serde, then push it far into the future
-        let raw: u64 = serde_json::to_string(&before)
-            .expect("serialize failed")
-            .parse()
-            .expect("expected u64 string");
-        let future_raw = raw + 100_000;
+        let mut buf = Vec::new();
+        let future = Timestamp(before.0 + 100_000);
+        ciborium::into_writer(&future, &mut buf).unwrap();
 
         // deserialize triggers Timestamp::sync internally
-        let remote: Timestamp =
-            serde_json::from_str(&future_raw.to_string()).expect("deserialize failed");
+        let remote: Timestamp = ciborium::de::from_reader(&buf[..]).unwrap();
 
         let after = Timestamp::now();
         assert!(
