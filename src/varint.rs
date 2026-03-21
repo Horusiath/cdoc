@@ -20,7 +20,7 @@ macro_rules! impl_varint {
                 }
 
                 let mut buf = [0u8; size_of::<Self>()];
-                buf[(size_of::<Self>() - byte_count)..].copy_from_slice(&bytes[..byte_count]);
+                buf[(size_of::<Self>() - byte_count)..].copy_from_slice(&bytes[1..1 + byte_count]);
 
                 Some((Self::from_be_bytes(buf), byte_count + 1))
             }
@@ -47,3 +47,44 @@ impl_varint!(u16);
 impl_varint!(u32);
 impl_varint!(u64);
 impl_varint!(u128);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn roundtrip_u128(value: u128) {
+            let mut buf = Vec::new();
+            value.write(&mut buf).unwrap();
+            let (decoded, bytes_read) = u128::read_from(&buf).unwrap();
+            prop_assert_eq!(decoded, value);
+            prop_assert_eq!(bytes_read, buf.len());
+        }
+
+        #[test]
+        fn truncation_detected_for_out_of_range(value in (u32::MAX as u64 + 1)..=u64::MAX) {
+            let mut buf = Vec::new();
+            value.write(&mut buf).unwrap();
+            prop_assert!(u32::read_from(&buf).is_none());
+        }
+
+        #[test]
+        fn truncation_succeeds_within_range(value in 0u64..=(u32::MAX as u64)) {
+            let mut buf = Vec::new();
+            value.write(&mut buf).unwrap();
+            let (decoded, _) = u32::read_from(&buf).unwrap();
+            prop_assert_eq!(decoded, value as u32);
+        }
+
+        #[test]
+        fn serialized_bytes_preserve_lexical_order(x: u128, y: u128) {
+            let mut buf_x = Vec::new();
+            let mut buf_y = Vec::new();
+            x.write(&mut buf_x).unwrap();
+            y.write(&mut buf_y).unwrap();
+            prop_assert_eq!(x.cmp(&y), buf_x.cmp(&buf_y));
+        }
+    }
+}
