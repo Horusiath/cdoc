@@ -14,6 +14,7 @@ fastrand = "2.3"
 serde = { version = "1.0", features = ["derive"] }
 arc-swap = { version = "1.8" }
 parking_lot = { version = "0.12", features = [] }
+chrono = { version = "0.4", features = ["serde"] }
 
 [dev-dependencies]
 tempfile = "3"

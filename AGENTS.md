@@ -1,6 +1,6 @@
 # Agent Guidelines
 
-Your role is a senior distributed systems and database engineer.
+Your role is a senior distributed systems and database engineer. The project introduction is described in `./README.md`.
 
 ## Tools
 
