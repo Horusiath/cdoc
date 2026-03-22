@@ -1,25 +1,27 @@
+use crate::path::PathError;
 
-
-pub(crate) mod wal;
-pub(crate) mod sst;
 mod db;
-mod pid;
-mod varint;
-mod path;
-mod transaction;
 mod hlc;
+mod path;
+mod pid;
+pub(crate) mod sst;
+mod transaction;
+mod varint;
+pub(crate) mod wal;
 
 pub type U16 = zerocopy::big_endian::U16;
 pub type U32 = zerocopy::big_endian::U32;
 pub type U64 = zerocopy::big_endian::U64;
 pub type U128 = zerocopy::big_endian::U128;
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
     IO(#[from] std::io::Error),
+    #[error("invalid path: {0}")]
+    Path(#[from] PathError),
     #[error("failed to deserialize zerocopy struct")]
     ZeroCopy,
 }

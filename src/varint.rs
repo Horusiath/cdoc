@@ -48,6 +48,48 @@ impl_varint!(u32);
 impl_varint!(u64);
 impl_varint!(u128);
 
+macro_rules! impl_varint_be {
+    ($t:ty) => {
+        impl VarInt for $t {
+            fn read_from(bytes: &[u8]) -> Option<(Self, usize)> {
+                if bytes.is_empty() {
+                    return None;
+                }
+
+                let byte_count = bytes[0] as usize;
+                if byte_count > size_of::<Self>() {
+                    return None;
+                }
+
+                let mut buf = [0u8; size_of::<Self>()];
+                buf[(size_of::<Self>() - byte_count)..].copy_from_slice(&bytes[1..1 + byte_count]);
+
+                Some((Self::from_bytes(buf), byte_count + 1))
+            }
+
+            fn write<W: Write>(&self, w: &mut W) -> std::io::Result<()> {
+                let mut size = size_of::<Self>();
+                let be = self.to_bytes();
+                for byte in be {
+                    if byte == 0 {
+                        size -= 1;
+                    } else {
+                        break;
+                    }
+                }
+                w.write_all(&[size as u8])?;
+                w.write_all(&be[(size_of::<Self>() - size)..])?;
+                Ok(())
+            }
+        }
+    };
+}
+
+impl_varint_be!(zerocopy::big_endian::U16);
+impl_varint_be!(zerocopy::big_endian::U32);
+impl_varint_be!(zerocopy::big_endian::U64);
+impl_varint_be!(zerocopy::big_endian::U128);
+
 #[cfg(test)]
 mod tests {
     use super::*;
