@@ -39,7 +39,7 @@ impl<'a> FractionalIndex<'a> {
             i += n;
             b = &b[n..];
         }
-        Some((Self::new(&b[..i]), i))
+        Some((Self::new(&bytes[..i]), i))
     }
 }
 
@@ -144,4 +144,112 @@ pub fn write_fractional_index<W: Write>(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn pid(n: u32) -> PID {
+        PID::new(n).unwrap()
+    }
+
+    fn seg(pid_val: u32, seq: u32) -> Segment {
+        Segment::new(pid(pid_val), seq)
+    }
+
+    fn write_segments(segments: &[Segment]) -> Vec<u8> {
+        let mut buf = Vec::new();
+        for s in segments {
+            s.write(&mut buf).unwrap();
+        }
+        buf
+    }
+
+    fn generate_between(lo: &[u8], hi: &[u8], p: PID) -> Vec<u8> {
+        let mut result = Vec::new();
+        write_fractional_index(&mut result, lo, hi, p).unwrap();
+        result
+    }
+
+    fn assert_parses(bytes: &[u8]) {
+        let (parsed, len) = FractionalIndex::from_bytes(bytes).unwrap();
+        assert_eq!(len, bytes.len());
+        assert_eq!(parsed.bytes(), bytes);
+    }
+
+    #[test]
+    fn empty_boundaries() {
+        let p = pid(1);
+        let result = generate_between(&[], &[], p);
+
+        assert!(!result.is_empty());
+        assert_parses(&result);
+    }
+
+    #[test]
+    fn lo_empty_hi_nonempty() {
+        let p = pid(1);
+        let hi = write_segments(&[seg(2, 5)]);
+
+        let result = generate_between(&[], &hi, p);
+
+        assert_parses(&result);
+        assert!(result.as_slice() < hi.as_slice());
+    }
+
+    #[test]
+    fn lo_nonempty_hi_empty() {
+        let p = pid(1);
+        let lo = write_segments(&[seg(2, 5)]);
+
+        let result = generate_between(&lo, &[], p);
+
+        assert_parses(&result);
+        assert!(result.as_slice() > lo.as_slice());
+    }
+
+    #[test]
+    fn same_pid_increments_seq_at_same_level() {
+        let p = pid(1);
+        let lo = write_segments(&[seg(1, 3)]);
+        let hi = write_segments(&[seg(2, 10)]);
+
+        let result = generate_between(&lo, &hi, p);
+
+        assert_parses(&result);
+        assert!(result.as_slice() > lo.as_slice());
+        assert!(result.as_slice() < hi.as_slice());
+
+        // should stay at the same level, not descend into a new segment
+        let segments: Vec<_> = FractionalIndex::new(&result).segments().collect();
+        assert_eq!(segments.len(), 1);
+        assert_eq!(segments[0], seg(1, 4));
+    }
+
+    #[test]
+    fn lo_fewer_segments_than_hi() {
+        let p = pid(1);
+        let lo = write_segments(&[seg(2, 3)]);
+        let hi = write_segments(&[seg(2, 3), seg(3, 5)]);
+
+        let result = generate_between(&lo, &hi, p);
+
+        assert_parses(&result);
+        assert!(result.as_slice() > lo.as_slice());
+        assert!(result.as_slice() < hi.as_slice());
+    }
+
+    #[test]
+    fn hi_fewer_segments_than_lo() {
+        let p = pid(1);
+        let lo = write_segments(&[seg(2, 3), seg(3, 5)]);
+        let hi = write_segments(&[seg(2, 5)]);
+
+        let result = generate_between(&lo, &hi, p);
+
+        assert_parses(&result);
+        assert!(result.as_slice() > lo.as_slice());
+        assert!(result.as_slice() < hi.as_slice());
+    }
 }
