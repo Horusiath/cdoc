@@ -1,4 +1,5 @@
 use crate::U32;
+use std::fmt::{Display, Formatter};
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 /// Globally unique peer identifier. [PID] is stored locally and reused across the calls.
@@ -41,5 +42,11 @@ impl PID {
 
     pub fn random() -> Self {
         PID(crate::U32::new(fastrand::u32(1..)))
+    }
+}
+
+impl Display for PID {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:x}", self.0)
     }
 }

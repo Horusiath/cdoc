@@ -1,5 +1,6 @@
 use crate::pid::PID;
 use crate::varint::VarInt;
+use std::fmt::{Display, Formatter};
 use std::io::Write;
 
 #[repr(transparent)]
@@ -43,6 +44,19 @@ impl<'a> FractionalIndex<'a> {
     }
 }
 
+impl<'a> Display for FractionalIndex<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut segments = self.segments();
+        if let Some(s) = segments.next() {
+            write!(f, "{}", s)?;
+        }
+        while let Some(s) = segments.next() {
+            write!(f, ":{}", s)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Segment {
     pid: PID,
@@ -70,6 +84,12 @@ impl Segment {
         self.pid.0.write(w)?;
         self.seq.write(w)?;
         Ok(())
+    }
+}
+
+impl Display for Segment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}@{})", self.pid, self.seq)
     }
 }
 
@@ -127,11 +147,11 @@ pub fn write_fractional_index<W: Write>(
         higher = hi.next();
     }
 
-    let min = Segment::new(pid, 0);
+    let min = Segment::new(pid, 1);
     while !diffed {
         let l = lower.take().unwrap_or(min);
         let h = higher.take().unwrap_or(Segment::MAX);
-        let n = Segment::new(pid, l.seq + 1);
+        let n = Segment::new(l.pid, l.seq + 1);
         if h > n {
             n.write(w)?;
             diffed = true;
