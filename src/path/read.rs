@@ -12,14 +12,10 @@ impl<'a> PathReader<'a> {
         PathReader { buf }
     }
 
-    fn is_delimiter(c: u8) -> bool {
-        c < 32
-    }
-
     fn read_field(&mut self) -> crate::Result<Field<'a>, PathError> {
         let mut i = 0;
         for byte in self.buf {
-            if Self::is_delimiter(*byte) {
+            if *byte == DELIMITER {
                 break;
             }
             i += 1;
@@ -54,23 +50,22 @@ impl<'a> Iterator for PathReader<'a> {
     type Item = crate::Result<PathSegment<'a>, PathError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.buf.is_empty() {
+        if self.buf.len() < 2 {
             return None;
         }
 
         let delim = self.buf[0];
-        if Self::is_delimiter(delim) {
+        if delim == DELIMITER {
+            self.buf = &self.buf[1..];
+            let delim = self.buf[0];
             match delim {
-                DELIMITER => {
-                    self.buf = &self.buf[1..];
-                    Some(self.read_field().map(PathSegment::Field))
-                }
                 CHUNKED => {
                     self.buf = &self.buf[1..];
                     Some(self.read_chunked().map(PathSegment::Tail))
                 }
+                17..31 => Some(Err(PathError::Delimiter(delim))),
                 1..17 => Some(self.read_fractional_index().map(PathSegment::Index)),
-                delim => Some(Err(PathError::Delimiter(delim))),
+                _ => Some(self.read_field().map(PathSegment::Field)),
             }
         } else {
             Some(Err(PathError::Delimiter(delim)))

@@ -38,7 +38,8 @@ impl<W: Write> PathWriter<W> {
     /// Appends a new fractional index to the end of the path.
     pub fn push_index(&mut self, index: FractionalIndex<'_>) -> crate::Result<()> {
         let len = index.bytes().len();
-        self.ensure_capacity(len)?;
+        self.ensure_capacity(1 + len)?;
+        self.writer.write_all(&[DELIMITER])?;
         self.writer.write_all(index.bytes())?;
         self.written += len;
         Ok(())
@@ -49,7 +50,7 @@ impl<W: Write> PathWriter<W> {
         let be = end_index.to_be_bytes();
         let data_len = size_of::<u64>() - be.iter().take_while(|&&b| b == 0).count();
         self.ensure_capacity(2 + data_len)?;
-        self.writer.write_all(&[CHUNKED])?;
+        self.writer.write_all(&[DELIMITER, CHUNKED])?;
         end_index.write(&mut self.writer)?;
         Ok(self.writer)
     }
