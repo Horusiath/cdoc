@@ -27,10 +27,13 @@ impl<'a> FractionalIndex<'a> {
         let mut i = 0;
         let mut b = bytes;
         while !b.is_empty() {
-            // first try to read PID
+            // first try to read PID - stop if invalid (e.g. 0x00 delimiter)
             match crate::U32::read_from(b) {
                 None => break,
-                Some((_, n)) => {
+                Some((pid, n)) => {
+                    if PID::new(pid).is_none() {
+                        break;
+                    }
                     i += n;
                     b = &b[n..];
                 }
@@ -40,7 +43,11 @@ impl<'a> FractionalIndex<'a> {
             i += n;
             b = &b[n..];
         }
-        Some((Self::new(&bytes[..i]), i))
+        if i == 0 {
+            None
+        } else {
+            Some((Self::new(&bytes[..i]), i))
+        }
     }
 }
 
