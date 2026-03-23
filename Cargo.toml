@@ -11,11 +11,14 @@ smallvec = { version = "2.0.0-alpha.12", features = ["bytes", "serde"] }
 zerocopy = { version = "0.8", features = ["derive", "simd"] }
 bitflags = "2.11"
 fastrand = "2.3"
+crc32fast = "1.5"
 serde = { version = "1.0", features = ["derive"] }
 arc-swap = { version = "1.8" }
 parking_lot = { version = "0.12", features = [] }
 chrono = { version = "0.4", features = ["serde"] }
 ciborium = { version = "0.2", features = [] }
+fastbloom-rs = "0.5"
+rart = "0.3"
 
 [dev-dependencies]
 tempfile = "3"

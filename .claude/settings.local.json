@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(cargo test --  2>&1)"
+      "Bash(cargo test --  2>&1)",
+      "WebSearch"
     ]
   }
 }
