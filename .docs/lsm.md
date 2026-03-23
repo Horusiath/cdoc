@@ -61,7 +61,6 @@ Each SSTable ends with footer. Footer contains following information:
 - First key of each block, min/max timestamps (2 * 8 bytes) of values in that block, and offset of that block (8 bytes)
   in SST file.
 - Bloom filter: variable size, counted as `filter_size = num_keys × 10 / 8` bytes.
-- Min/Max timestamps of the entire SST file: 2 * 8 bytes.
 - File offset where does the block index starts: 8 bytes (little endian).
 - File offset where does the bloom filter starts: 8 bytes (little endian).
 - Number of keys: 8 bytes (little endian).
@@ -84,3 +83,15 @@ block size.
 
 ## Compaction
 
+CDoc uses Sized Time-Window Compaction Strategy with peer partitioning. SSTable files are split into subdirectories:
+one per peer. Each subdirectory name is `{pid}` of a peer they relate to. Each peer changes are written only to a
+files in that peer's subdirectory.
+
+SSTable file itself is combination of `{min_timestamp}-{max_timestamp}.sst` representing min/max timestamps of
+values that can be found in this file.
+
+Whenever a MemTable is flushed, we create a new SSTable file. Those files can be compacted manually on time range
+basis i.e. last hour, last day or last week. They can also be compacted on size/count basis: we can track individual SST
+file sizes and whenever their number and size run over the specified threshold, we merge them together using groups
+of files with adjacent time ranges . In practice this is similar to leveled approach: in this scenario older SST
+files and files representing wider time ranges can act as higher level than the more recent ones.
