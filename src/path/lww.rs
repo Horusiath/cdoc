@@ -49,4 +49,47 @@ impl LWWHeader {
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use super::*;
+    use zerocopy::IntoBytes;
+
+    fn register(ts: u64, pid: u32, value: &[u8]) -> Vec<u8> {
+        let header = LWWHeader::new(Timestamp::new(ts), PID::new(pid).unwrap());
+        let mut buf = Vec::with_capacity(LWWHeader::SIZE + value.len());
+        buf.extend_from_slice(header.as_bytes());
+        buf.extend_from_slice(value);
+        buf
+    }
+
+    #[test]
+    fn merge_returns_register_with_higher_timestamp() {
+        let left = register(10, 1, b"old");
+        let right = register(20, 1, b"new");
+        let result = LWWHeader::merge(&left, &right).unwrap();
+        assert!(std::ptr::eq(result, right.as_slice()));
+    }
+
+    #[test]
+    fn merge_returns_register_with_higher_timestamp_reversed() {
+        let left = register(20, 1, b"new");
+        let right = register(10, 1, b"old");
+        let result = LWWHeader::merge(&left, &right).unwrap();
+        assert!(std::ptr::eq(result, left.as_slice()));
+    }
+
+    #[test]
+    fn merge_uses_pid_as_tiebreaker_when_timestamps_equal() {
+        let left = register(10, 1, b"lo-pid");
+        let right = register(10, 2, b"hi-pid");
+        let result = LWWHeader::merge(&left, &right).unwrap();
+        assert!(std::ptr::eq(result, right.as_slice()));
+    }
+
+    #[test]
+    fn merge_uses_pid_as_tiebreaker_reversed() {
+        let left = register(10, 2, b"hi-pid");
+        let right = register(10, 1, b"lo-pid");
+        let result = LWWHeader::merge(&left, &right).unwrap();
+        assert!(std::ptr::eq(result, left.as_slice()));
+    }
+}
