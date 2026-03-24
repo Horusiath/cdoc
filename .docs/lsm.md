@@ -33,8 +33,11 @@ Memory tables are used as an in-memory buffer for the most recent data writes. T
 writes small and organized, so that later when we need to flush them to the disk (in form of SSTables), we can do it
 quickly in a single pass.
 
-In CDoc `MemTable` implementation will follow a Adaptive Radix Tree design: it's a reasonable choice since the document
-tree decomposition relies heavily on common prefixes and reads often reach for the ranges of keys under the same prefix.
+In CDoc `MemTable` implementation will follow a Adaptive Radix Tree (ART) design: it's a reasonable choice since the
+document tree decomposition relies heavily on common prefixes and reads often reach for the ranges of keys under the
+same prefix. Inside of ART keys are already decomposed [paths](./object-decomposition.md) to an overall document
+structure, while values are represented as byte strings. These byte string can contain path specific data like Last
+Write Wins (LWW) register headers - such headers are encoded using zero-copy strategy.
 
 `MemTable` size is configurable (through `DbOptions.memtable_size`) and it's `4MiB` by default.
 
@@ -83,15 +86,12 @@ block size.
 
 ## Compaction
 
-CDoc uses Sized Time-Window Compaction Strategy with peer partitioning. SSTable files are split into subdirectories:
-one per peer. Each subdirectory name is `{pid}` of a peer they relate to. Each peer changes are written only to a
-files in that peer's subdirectory.
-
-SSTable file itself is combination of `{min_timestamp}-{max_timestamp}.sst` representing min/max timestamps of
-values that can be found in this file.
+CDoc uses Sized Time-Window Compaction Strategy. SSTable file itself is combination of `{min_timestamp}-
+{max_timestamp}.sst` representing min/max timestamps of the values that can be found in this file.
 
 Whenever a MemTable is flushed, we create a new SSTable file. Those files can be compacted manually on time range
 basis i.e. last hour, last day or last week. They can also be compacted on size/count basis: we can track individual SST
 file sizes and whenever their number and size run over the specified threshold, we merge them together using groups
 of files with adjacent time ranges . In practice this is similar to leveled approach: in this scenario older SST
-files and files representing wider time ranges can act as higher level than the more recent ones.
+files and files representing wider time ranges can act as higher level than the more recent ones, eg. merge last
+24 1hour-span files into a single 1day-span file, then 7day-span files into a single 1week-span one etc.

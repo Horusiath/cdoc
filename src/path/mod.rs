@@ -2,6 +2,7 @@ use crate::path::lseq::FractionalIndex;
 use std::ops::Deref;
 
 pub mod lseq;
+mod lww;
 mod read;
 mod write;
 

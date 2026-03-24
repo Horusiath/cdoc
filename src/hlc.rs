@@ -3,12 +3,26 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime};
+use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 /// A hybrid logical timestamp. It's based on UNIX milliseconds timestamp, but the last 16bits are
 /// assigned from monotonically increasing sequencer.
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Timestamp(u64);
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    FromBytes,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+)]
+pub struct Timestamp(crate::U64);
 
 static COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -18,7 +32,7 @@ impl Timestamp {
 
     #[inline]
     pub const fn new(unix_millis: u64) -> Self {
-        Timestamp(unix_millis)
+        Timestamp(crate::U64::new(unix_millis))
     }
 
     pub fn now() -> Self {
@@ -34,14 +48,14 @@ impl Timestamp {
                 .compare_exchange(latest, max, Ordering::SeqCst, Ordering::SeqCst)
                 .is_ok()
             {
-                return Timestamp(max);
+                return Timestamp(max.into());
             }
         }
     }
 
     pub fn sync(timestamp: Self) -> Self {
-        let latest = COUNTER.fetch_max(timestamp.0, Ordering::SeqCst);
-        Timestamp(latest)
+        let latest = COUNTER.fetch_max(timestamp.0.get(), Ordering::SeqCst);
+        Timestamp(latest.into())
     }
 }
 
@@ -49,26 +63,26 @@ impl From<SystemTime> for Timestamp {
     fn from(value: SystemTime) -> Self {
         let ts = value.duration_since(SystemTime::UNIX_EPOCH).unwrap();
         let masked = (ts.as_millis() as u64) & Self::MASK;
-        Timestamp(masked)
+        Timestamp(masked.into())
     }
 }
 
 impl From<Timestamp> for SystemTime {
     fn from(value: Timestamp) -> Self {
-        SystemTime::UNIX_EPOCH + Duration::from_millis(value.0)
+        SystemTime::UNIX_EPOCH + Duration::from_millis(value.0.get())
     }
 }
 
 impl From<chrono::DateTime<chrono::Utc>> for Timestamp {
     fn from(value: chrono::DateTime<chrono::Utc>) -> Self {
         let ts = (value.timestamp_millis() as u64) & Self::MASK;
-        Timestamp(ts)
+        Timestamp(ts.into())
     }
 }
 
 impl From<Timestamp> for chrono::DateTime<chrono::Utc> {
     fn from(value: Timestamp) -> Self {
-        chrono::DateTime::from_timestamp_millis(value.0 as i64).unwrap()
+        chrono::DateTime::from_timestamp_millis(value.0.get() as i64).unwrap()
     }
 }
 
@@ -77,7 +91,7 @@ impl Serialize for Timestamp {
     where
         S: Serializer,
     {
-        serializer.serialize_u64(self.0)
+        serializer.serialize_u64(self.0.get())
     }
 }
 
@@ -95,7 +109,7 @@ impl<'de> Deserialize<'de> for Timestamp {
             }
 
             fn visit_u64<E>(self, value: u64) -> Result<Timestamp, E> {
-                let t = Timestamp(value);
+                let t = Timestamp(value.into());
                 // synchronize the timestamp with our current knowledge
                 Timestamp::sync(t);
                 Ok(t)
