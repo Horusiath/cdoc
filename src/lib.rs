@@ -9,6 +9,8 @@ mod transaction;
 mod varint;
 pub(crate) mod wal;
 
+pub use pid::PID;
+
 pub type U16 = zerocopy::big_endian::U16;
 pub type U32 = zerocopy::big_endian::U32;
 pub type U64 = zerocopy::big_endian::U64;

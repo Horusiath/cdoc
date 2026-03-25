@@ -7,7 +7,9 @@ mod read;
 mod write;
 
 const DELIMITER: u8 = 0;
-const CHUNKED: u8 = 0b11111;
+const TERMINATOR_COUNTER: u8 = 0b11101;
+const TERMINATOR_LWW: u8 = 0b11110;
+const TERMINATOR_CHUNKED: u8 = 0b11111;
 
 #[derive(Debug, thiserror::Error)]
 pub enum PathError {
@@ -31,12 +33,18 @@ pub enum PathSegment<'a> {
     /// Fractional index.
     Index(FractionalIndex<'a>),
     /// Special tail case (always at the end of the path).
-    Tail(PathTail),
+    Tail(Terminator),
 }
 
+#[repr(u8)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum PathTail {
-    Chunked(u64),
+pub enum Terminator {
+    /// Distributed CRDT counter segment.
+    Counter(crate::PID) = TERMINATOR_COUNTER,
+    /// Last-Write Wins field.
+    LWW = TERMINATOR_LWW,
+    /// Chunked field (also resolved as last-write wins).
+    Chunked(u64) = TERMINATOR_CHUNKED,
 }
 
 #[repr(transparent)]
@@ -142,12 +150,12 @@ mod tests {
                     }
                 }
             }
-            let buf = writer.finish();
+            let buf = writer.lww().unwrap();
 
             let reader = PathReader::new(&buf);
             let parsed: Vec<_> = reader.collect::<Result<Vec<_>, _>>().unwrap();
 
-            prop_assert_eq!(parsed.len(), segments.len());
+            prop_assert_eq!(parsed.len(), segments.len() + 1); // LWW terminator is last segment
             for (p, o) in parsed.iter().zip(segments.iter()) {
                 match (p, o) {
                     (PathSegment::Field(f), TestSegment::Field(s)) => {
@@ -155,7 +163,7 @@ mod tests {
                     }
                     (PathSegment::Index(idx), TestSegment::Index(bytes)) => {
                         prop_assert_eq!(idx.bytes(), bytes.as_slice());
-                    }
+                    },
                     _ => prop_assert!(false, "segment type mismatch"),
                 }
             }
@@ -166,7 +174,7 @@ mod tests {
     fn roundtrip_chunked_tail() {
         let mut writer = PathWriter::new(Vec::new());
         writer.push_field("content").unwrap();
-        let buf = writer.chunked(42).unwrap();
+        let buf = writer.lww_chunked(42).unwrap();
 
         let reader = PathReader::new(&buf);
         let segments: Vec<_> = reader.collect::<Result<Vec<_>, _>>().unwrap();
@@ -176,7 +184,25 @@ mod tests {
             segments[0],
             PathSegment::Field(Field::new("content").unwrap())
         );
-        assert_eq!(segments[1], PathSegment::Tail(PathTail::Chunked(42)));
+        assert_eq!(segments[1], PathSegment::Tail(Terminator::Chunked(42)));
+    }
+
+    #[test]
+    fn roundtrip_counter() {
+        let mut writer = PathWriter::new(Vec::new());
+        writer.push_field("content").unwrap();
+        let pid = PID::random();
+        let buf = writer.counter(pid).unwrap();
+
+        let reader = PathReader::new(&buf);
+        let segments: Vec<_> = reader.collect::<Result<Vec<_>, _>>().unwrap();
+
+        assert_eq!(segments.len(), 2);
+        assert_eq!(
+            segments[0],
+            PathSegment::Field(Field::new("content").unwrap())
+        );
+        assert_eq!(segments[1], PathSegment::Tail(Terminator::Counter(pid)));
     }
 
     #[test]
@@ -202,6 +228,6 @@ mod tests {
         let mut writer = PathWriter::new(Vec::new());
         let field = "a".repeat(i16::MAX as usize - 2);
         writer.push_field(&field).unwrap();
-        assert!(writer.chunked(u64::MAX).is_err());
+        assert!(writer.lww_chunked(u64::MAX).is_err());
     }
 }

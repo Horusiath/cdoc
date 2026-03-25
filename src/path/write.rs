@@ -1,7 +1,10 @@
 use crate::path::lseq::FractionalIndex;
-use crate::path::{CHUNKED, DELIMITER, Field, PathError};
+use crate::path::{
+    DELIMITER, Field, PathError, TERMINATOR_CHUNKED, TERMINATOR_COUNTER, TERMINATOR_LWW,
+};
 use crate::varint::VarInt;
 use std::io::Write;
+use zerocopy::IntoBytes;
 
 /// Struct used for encoding path format to any kind of input.
 /// Tracks total bytes written to enforce the `i16::MAX` length limit.
@@ -46,18 +49,25 @@ impl<W: Write> PathWriter<W> {
     }
 
     /// Finalizes the path marking it as a chunked content ending at index.
-    pub fn chunked(mut self, end_index: u64) -> crate::Result<W> {
+    pub fn lww_chunked(mut self, end_index: u64) -> crate::Result<W> {
         let be = end_index.to_be_bytes();
         let data_len = size_of::<u64>() - be.iter().take_while(|&&b| b == 0).count();
         self.ensure_capacity(2 + data_len)?;
-        self.writer.write_all(&[DELIMITER, CHUNKED])?;
+        self.writer.write_all(&[DELIMITER, TERMINATOR_CHUNKED])?;
         end_index.write(&mut self.writer)?;
         Ok(self.writer)
     }
 
-    /// Finalizes the path.
-    #[inline]
-    pub fn finish(self) -> W {
-        self.writer
+    /// Finalizes the path as a Last-Write Wins register.
+    pub fn lww(mut self) -> crate::Result<W> {
+        self.writer.write_all(&[DELIMITER, TERMINATOR_LWW])?;
+        Ok(self.writer)
+    }
+
+    /// Finalizes the path as a Last-Write Wins register.
+    pub fn counter(mut self, pid: crate::PID) -> crate::Result<W> {
+        self.writer.write_all(&[DELIMITER, TERMINATOR_COUNTER])?;
+        self.writer.write_all(pid.as_bytes())?;
+        Ok(self.writer)
     }
 }

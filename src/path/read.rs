@@ -1,5 +1,8 @@
+use crate::PID;
 use crate::path::lseq::FractionalIndex;
-use crate::path::{CHUNKED, DELIMITER, Field, PathTail};
+use crate::path::{
+    DELIMITER, Field, TERMINATOR_CHUNKED, TERMINATOR_COUNTER, TERMINATOR_LWW, Terminator,
+};
 use crate::path::{PathError, PathSegment};
 use crate::varint::VarInt;
 
@@ -25,12 +28,23 @@ impl<'a> PathReader<'a> {
         Ok(unsafe { Field::new_unchecked(std::str::from_utf8_unchecked(l)) })
     }
 
-    fn read_chunked(&mut self) -> crate::Result<PathTail, PathError> {
+    fn read_chunked(&mut self) -> crate::Result<Terminator, PathError> {
         match u64::read_from(self.buf) {
             None => Err(PathError::VarInt),
             Some((end_index, read)) => {
                 self.buf = &self.buf[read..];
-                Ok(PathTail::Chunked(end_index))
+                Ok(Terminator::Chunked(end_index))
+            }
+        }
+    }
+
+    fn read_counter(&mut self) -> crate::Result<Terminator, PathError> {
+        use zerocopy::FromBytes;
+        match PID::ref_from_bytes(self.buf) {
+            Err(_) => Err(PathError::VarInt),
+            Ok(&pid) => {
+                self.buf = &[]; // end of the path
+                Ok(Terminator::Counter(pid))
             }
         }
     }
@@ -59,12 +73,20 @@ impl<'a> Iterator for PathReader<'a> {
             self.buf = &self.buf[1..];
             let delim = self.buf[0];
             match delim {
-                CHUNKED => {
+                TERMINATOR_CHUNKED => {
                     self.buf = &self.buf[1..];
                     Some(self.read_chunked().map(PathSegment::Tail))
                 }
-                17..31 => Some(Err(PathError::Delimiter(delim))),
+                TERMINATOR_LWW => {
+                    self.buf = &[]; // end of the path
+                    Some(Ok(PathSegment::Tail(Terminator::LWW)))
+                }
+                TERMINATOR_COUNTER => {
+                    self.buf = &self.buf[1..];
+                    Some(self.read_counter().map(PathSegment::Tail))
+                }
                 1..17 => Some(self.read_fractional_index().map(PathSegment::Index)),
+                17..32 => Some(Err(PathError::Delimiter(delim))),
                 _ => Some(self.read_field().map(PathSegment::Field)),
             }
         } else {
