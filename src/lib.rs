@@ -16,7 +16,7 @@ pub use db::{Db, DbOptions};
 pub use mutation::{Mutation, Op, Segment};
 pub use path::lseq::FractionalIndex;
 pub use pid::PID;
-pub use query::Query;
+pub use query::{Filter, Query, Select};
 pub use transaction::{ReadOnlyTransaction, ReadWriteTransaction};
 
 pub type U16 = zerocopy::big_endian::U16;
