@@ -11,8 +11,9 @@ mod transaction;
 mod varint;
 pub(crate) mod wal;
 
+pub use ciborium as cbor;
 pub use db::{Db, DbOptions};
-pub use mutation::Mutation;
+pub use mutation::{Mutation, Op, Segment};
 pub use path::lseq::FractionalIndex;
 pub use pid::PID;
 pub use transaction::{ReadOnlyTransaction, ReadWriteTransaction};
