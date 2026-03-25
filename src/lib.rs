@@ -16,6 +16,7 @@ pub use db::{Db, DbOptions};
 pub use mutation::{Mutation, Op, Segment};
 pub use path::lseq::FractionalIndex;
 pub use pid::PID;
+pub use query::Query;
 pub use transaction::{ReadOnlyTransaction, ReadWriteTransaction};
 
 pub type U16 = zerocopy::big_endian::U16;
@@ -35,6 +36,8 @@ pub enum Error {
     ZeroCopy,
     #[error("failed to serialize CBOR value: {0}")]
     Cbor(#[from] crate::cbor::ser::Error<std::io::Error>),
+    #[error(transparent)]
+    Query(#[from] crate::query::QueryError),
 }
 
 impl<T> From<zerocopy::CastError<&[u8], T>> for Error {

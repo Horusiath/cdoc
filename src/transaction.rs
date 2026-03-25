@@ -1,9 +1,13 @@
-use crate::mutation::Mutation;
+use crate::{Mutation, Query};
 
 #[derive(Debug)]
 pub struct ReadOnlyTransaction {}
 
-impl ReadOnlyTransaction {}
+impl ReadOnlyTransaction {
+    pub fn query(&self, query: &Query) -> crate::Result<crate::cbor::Value> {
+        todo!()
+    }
+}
 
 #[derive(Debug)]
 pub struct ReadWriteTransaction {}
@@ -14,8 +18,12 @@ impl ReadWriteTransaction {
         todo!()
     }
 
+    pub fn query(&self, query: &Query) -> crate::Result<crate::cbor::Value> {
+        todo!()
+    }
+
     /// Applies a mutation to an underlying database structure.
-    pub fn execute(&mut self, mutation: Mutation) -> crate::Result<()> {
+    pub fn execute(&mut self, mutation: &Mutation) -> crate::Result<()> {
         todo!()
     }
 
