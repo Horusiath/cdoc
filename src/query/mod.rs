@@ -1,3 +1,5 @@
+mod parse;
+
 /// Structured query descriptor used to select fields from the document tree.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Query {
@@ -11,7 +13,7 @@ impl Query {
     }
 
     pub fn parse(query: &str) -> crate::Result<Self, QueryError> {
-        todo!()
+        parse::Parser::new(query).parse_query()
     }
 }
 
@@ -55,7 +57,17 @@ pub enum Filter {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum QueryError {}
+pub enum QueryError {
+    /// Found a character that doesn't belong at the given position.
+    #[error("unexpected character '{0}' at position {1}")]
+    UnexpectedChar(char, usize),
+    /// Input ended before the query was complete.
+    #[error("unexpected end of input")]
+    UnexpectedEnd,
+    /// A filter keyword was not recognised.
+    #[error("unknown filter '{0}' at position {1}")]
+    UnknownFilter(String, usize),
+}
 
 /// Macro used to build queries at compile time, without the need to parse strings. Its grammar
 /// roughly resembles a subset of GraphQL query syntax:
