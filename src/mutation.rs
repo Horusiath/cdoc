@@ -1,4 +1,8 @@
+use crate::FractionalIndex;
+use crate::path::PathError;
+use crate::path::write::PathWriter;
 use std::cmp::Ordering;
+use std::io::Write;
 
 /// Mutation is a descriptor of changes to be applied to the document tree structure. For regular
 /// scenarios, use `mutation!` macro for more convenient syntax.
@@ -36,6 +40,48 @@ impl Mutation {
     {
         Mutation::Compose(iter.into_iter().collect())
     }
+
+    pub fn for_each<F>(&self, mut f: F) -> crate::Result<()>
+    where
+        F: FnMut(Vec<u8>, Vec<u8>),
+    {
+        let mut w = PathWriter::new(Vec::new(), 0);
+        self.for_each_internal(&mut f, &mut w)
+    }
+
+    fn for_each_internal<F>(&self, f: &mut F, w: &mut PathWriter<Vec<u8>>) -> crate::Result<()>
+    where
+        F: FnMut(Vec<u8>, Vec<u8>),
+    {
+        match self {
+            Mutation::Apply(segment, Op::Delete) => {
+                segment.write(w)?;
+                f(w.clone().lww()?, Vec::new());
+            }
+            Mutation::Apply(segment, Op::Assign(value)) => {
+                segment.write(w)?;
+                let mut buf = Vec::new();
+                crate::cbor::into_writer(value, &mut buf)?;
+                f(w.clone().lww()?, buf);
+            }
+            Mutation::Nested(segment, mutations) => {
+                segment.write(w)?;
+                let trunc = w.inner().len();
+                for mutation in mutations {
+                    mutation.for_each_internal(f, w)?;
+                    w.inner_mut().truncate(trunc);
+                }
+            }
+            Mutation::Compose(mutations) => {
+                let trunc = w.inner().len();
+                for mutation in mutations {
+                    mutation.for_each_internal(f, w)?;
+                    w.inner_mut().truncate(trunc);
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 /// Individual operation defined on a segment within the scope of its parent [Mutation].
@@ -57,6 +103,19 @@ impl<V: Into<crate::cbor::Value>> From<V> for Op {
 pub enum Segment {
     Field(String),
     FractionalIndex(Vec<u8>),
+}
+
+impl Segment {
+    fn write<W: Write>(&self, w: &mut PathWriter<W>) -> crate::Result<()> {
+        match self {
+            Segment::Field(field) => w.push_field(field),
+            Segment::FractionalIndex(index) => {
+                let findex = FractionalIndex::new(index)
+                    .ok_or_else(|| crate::Error::Path(PathError::InvalidIndex))?;
+                w.push_index(findex)
+            }
+        }
+    }
 }
 
 impl Ord for Segment {
@@ -126,7 +185,7 @@ impl<'a> From<&'a [u8]> for Segment {
 /// let db = Db::open(DbOptions::new("./path/to/db"))?;
 /// let mut tx = db.begin()?;
 ///
-/// tx.apply(mutation!({
+/// tx.execute(mutation!({
 ///   "users": {
 ///     "fd99bc9e-3258-492a-8d3c-335d713309eb": {
 ///       "name": "Alice",

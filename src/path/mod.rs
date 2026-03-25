@@ -3,8 +3,8 @@ use std::ops::Deref;
 
 pub mod lseq;
 mod lww;
-mod read;
-mod write;
+pub(crate) mod read;
+pub(crate) mod write;
 
 const DELIMITER: u8 = 0;
 const TERMINATOR_COUNTER: u8 = 0b11101;
@@ -141,7 +141,7 @@ mod tests {
     proptest! {
         #[test]
         fn roundtrip_path(segments in proptest::collection::vec(path_segment(), 1..=8)) {
-            let mut writer = PathWriter::new(Vec::new());
+            let mut writer = PathWriter::new(Vec::new(), 0);
             for seg in &segments {
                 match seg {
                     TestSegment::Field(f) => writer.push_field(f).unwrap(),
@@ -172,7 +172,7 @@ mod tests {
 
     #[test]
     fn roundtrip_chunked_tail() {
-        let mut writer = PathWriter::new(Vec::new());
+        let mut writer = PathWriter::new(Vec::new(), 0);
         writer.push_field("content").unwrap();
         let buf = writer.lww_chunked(42).unwrap();
 
@@ -189,7 +189,7 @@ mod tests {
 
     #[test]
     fn roundtrip_counter() {
-        let mut writer = PathWriter::new(Vec::new());
+        let mut writer = PathWriter::new(Vec::new(), 0);
         writer.push_field("content").unwrap();
         let pid = PID::random();
         let buf = writer.counter(pid).unwrap();
@@ -207,14 +207,14 @@ mod tests {
 
     #[test]
     fn path_length_limit_on_field() {
-        let mut writer = PathWriter::new(Vec::new());
+        let mut writer = PathWriter::new(Vec::new(), 0);
         let long_field = "a".repeat(i16::MAX as usize);
         assert!(writer.push_field(&long_field).is_err());
     }
 
     #[test]
     fn path_length_limit_on_accumulated_fields() {
-        let mut writer = PathWriter::new(Vec::new());
+        let mut writer = PathWriter::new(Vec::new(), 0);
         let field = "a".repeat(10_000);
         writer.push_field(&field).unwrap();
         writer.push_field(&field).unwrap();
@@ -225,7 +225,7 @@ mod tests {
 
     #[test]
     fn path_length_limit_on_chunked() {
-        let mut writer = PathWriter::new(Vec::new());
+        let mut writer = PathWriter::new(Vec::new(), 0);
         let field = "a".repeat(i16::MAX as usize - 2);
         writer.push_field(&field).unwrap();
         assert!(writer.lww_chunked(u64::MAX).is_err());

@@ -33,6 +33,8 @@ pub enum Error {
     Path(#[from] PathError),
     #[error("failed to deserialize zerocopy struct")]
     ZeroCopy,
+    #[error("failed to serialize CBOR value: {0}")]
+    Cbor(#[from] crate::cbor::ser::Error<std::io::Error>),
 }
 
 impl<T> From<zerocopy::CastError<&[u8], T>> for Error {

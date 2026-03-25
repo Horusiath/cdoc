@@ -15,7 +15,7 @@ impl ReadWriteTransaction {
     }
 
     /// Applies a mutation to an underlying database structure.
-    pub fn apply(&mut self, mutation: Mutation) -> crate::Result<()> {
+    pub fn execute(&mut self, mutation: Mutation) -> crate::Result<()> {
         todo!()
     }
 

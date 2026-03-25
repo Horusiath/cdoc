@@ -8,15 +8,23 @@ use zerocopy::IntoBytes;
 
 /// Struct used for encoding path format to any kind of input.
 /// Tracks total bytes written to enforce the `i16::MAX` length limit.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PathWriter<W> {
     writer: W,
     written: usize,
 }
 
 impl<W: Write> PathWriter<W> {
-    pub fn new(writer: W) -> PathWriter<W> {
-        PathWriter { writer, written: 0 }
+    pub fn new(writer: W, written: usize) -> PathWriter<W> {
+        PathWriter { writer, written }
+    }
+
+    pub fn inner(&self) -> &W {
+        &self.writer
+    }
+
+    pub fn inner_mut(&mut self) -> &mut W {
+        &mut self.writer
     }
 
     fn ensure_capacity(&self, additional: usize) -> crate::Result<()> {
