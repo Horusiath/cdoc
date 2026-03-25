@@ -287,6 +287,24 @@ macro_rules! mutation {
 mod tests {
     use super::*;
     use crate::cbor::cbor;
+    use crate::path::write::PathWriter;
+    use crate::{FractionalIndex, PID};
+
+    /// Builds a finalized LWW path from the given mutation segments.
+    fn build_path(segments: &[&Segment]) -> Vec<u8> {
+        let mut w = PathWriter::new(Vec::new(), 0);
+        for seg in segments {
+            seg.write(&mut w).unwrap();
+        }
+        w.lww().unwrap()
+    }
+
+    /// Serializes a CBOR value into bytes.
+    fn encode_cbor(value: &crate::cbor::Value) -> Vec<u8> {
+        let mut buf = Vec::new();
+        crate::cbor::into_writer(value, &mut buf).unwrap();
+        buf
+    }
 
     #[test]
     fn assign_int() {
@@ -434,5 +452,185 @@ mod tests {
                 )],
             )])
         );
+    }
+
+    #[test]
+    fn macro_with_fractional_index_key() {
+        let pid = PID::new(1u32).unwrap();
+        let idx = FractionalIndex::between(None, None, pid);
+        let expected_seg = Segment::FractionalIndex(idx.clone());
+        let m = mutation!({
+            "items": {
+                idx: "Bob"
+            }
+        });
+        assert_eq!(
+            m,
+            Mutation::Compose(vec![Mutation::Nested(
+                Segment::Field("items".to_string()),
+                vec![Mutation::Apply(
+                    expected_seg,
+                    Op::Assign(crate::cbor::Value::Text("Bob".to_string())),
+                )],
+            )])
+        );
+    }
+
+    #[test]
+    fn for_each_field_assign() {
+        let m = mutation!({ "name": "Alice" });
+        let mut results = Vec::new();
+        m.for_each(|path, value| results.push((path, value)))
+            .unwrap();
+
+        let seg = Segment::Field("name".to_string());
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0, build_path(&[&seg]));
+        assert_eq!(
+            results[0].1,
+            encode_cbor(&crate::cbor::Value::Text("Alice".to_string()))
+        );
+    }
+
+    #[test]
+    fn for_each_field_delete() {
+        let m = mutation!({ "name": @delete });
+        let mut results = Vec::new();
+        m.for_each(|path, value| results.push((path, value)))
+            .unwrap();
+
+        let seg = Segment::Field("name".to_string());
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0, build_path(&[&seg]));
+        assert!(results[0].1.is_empty());
+    }
+
+    #[test]
+    fn for_each_fractional_index_assign() {
+        let pid = PID::new(1u32).unwrap();
+        let idx = FractionalIndex::between(None, None, pid);
+        let seg = Segment::FractionalIndex(idx);
+        let m = Mutation::Apply(seg.clone(), Op::Assign(crate::cbor::Value::from(42)));
+        let mut results = Vec::new();
+        m.for_each(|path, value| results.push((path, value)))
+            .unwrap();
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0, build_path(&[&seg]));
+        assert_eq!(results[0].1, encode_cbor(&crate::cbor::Value::from(42)));
+    }
+
+    #[test]
+    fn for_each_fractional_index_delete() {
+        let pid = PID::new(1u32).unwrap();
+        let idx = FractionalIndex::between(None, None, pid);
+        let seg = Segment::FractionalIndex(idx);
+        let m = Mutation::Apply(seg.clone(), Op::Delete);
+        let mut results = Vec::new();
+        m.for_each(|path, value| results.push((path, value)))
+            .unwrap();
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0, build_path(&[&seg]));
+        assert!(results[0].1.is_empty());
+    }
+
+    #[test]
+    fn for_each_nested_fields() {
+        let m = mutation!({
+            "users": {
+                "name": "Alice"
+            }
+        });
+        let mut results = Vec::new();
+        m.for_each(|path, value| results.push((path, value)))
+            .unwrap();
+
+        let users = Segment::Field("users".to_string());
+        let name = Segment::Field("name".to_string());
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0, build_path(&[&users, &name]));
+        assert_eq!(
+            results[0].1,
+            encode_cbor(&crate::cbor::Value::Text("Alice".to_string()))
+        );
+    }
+
+    #[test]
+    fn for_each_nested_with_fractional_index() {
+        let pid = PID::new(1u32).unwrap();
+        let idx = FractionalIndex::between(None, None, pid);
+        let idx_seg = Segment::FractionalIndex(idx);
+        let items = Segment::Field("items".to_string());
+        let m = Mutation::Nested(
+            items.clone(),
+            vec![Mutation::Apply(
+                idx_seg.clone(),
+                Op::Assign(crate::cbor::Value::from(99)),
+            )],
+        );
+        let mut results = Vec::new();
+        m.for_each(|path, value| results.push((path, value)))
+            .unwrap();
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0, build_path(&[&items, &idx_seg]));
+        assert_eq!(results[0].1, encode_cbor(&crate::cbor::Value::from(99)));
+    }
+
+    #[test]
+    fn for_each_compose_multiple_entries() {
+        let m = mutation!({
+            "name": "Alice",
+            "age": @delete,
+            "active": true
+        });
+        let mut results = Vec::new();
+        m.for_each(|path, value| results.push((path, value)))
+            .unwrap();
+
+        let name = Segment::Field("name".to_string());
+        let age = Segment::Field("age".to_string());
+        let active = Segment::Field("active".to_string());
+
+        assert_eq!(results.len(), 3);
+        assert_eq!(results[0].0, build_path(&[&name]));
+        assert_eq!(
+            results[0].1,
+            encode_cbor(&crate::cbor::Value::Text("Alice".to_string()))
+        );
+        assert_eq!(results[1].0, build_path(&[&age]));
+        assert!(results[1].1.is_empty());
+        assert_eq!(results[2].0, build_path(&[&active]));
+        assert_eq!(results[2].1, encode_cbor(&crate::cbor::Value::Bool(true)));
+    }
+
+    #[test]
+    fn for_each_deep_nesting_mixed_ops() {
+        let m = mutation!({
+            "users": {
+                "alice": {
+                    "name": "Alice",
+                    "age": @delete
+                }
+            }
+        });
+        let mut results = Vec::new();
+        m.for_each(|path, value| results.push((path, value)))
+            .unwrap();
+
+        let users = Segment::Field("users".to_string());
+        let alice = Segment::Field("alice".to_string());
+        let name = Segment::Field("name".to_string());
+        let age = Segment::Field("age".to_string());
+
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].0, build_path(&[&users, &alice, &name]));
+        assert_eq!(
+            results[0].1,
+            encode_cbor(&crate::cbor::Value::Text("Alice".to_string()))
+        );
+        assert_eq!(results[1].0, build_path(&[&users, &alice, &age]));
+        assert!(results[1].1.is_empty());
     }
 }
