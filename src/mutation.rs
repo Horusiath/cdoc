@@ -42,12 +42,12 @@ impl Mutation {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Op {
     /// Assign a new value to it owner [Mutation] segment.
-    Assign(ciborium::Value),
+    Assign(crate::cbor::Value),
     /// Delete a segment.
     Delete,
 }
 
-impl<V: Into<ciborium::Value>> From<V> for Op {
+impl<V: Into<crate::cbor::Value>> From<V> for Op {
     fn from(value: V) -> Self {
         Op::Assign(value.into())
     }
@@ -112,7 +112,7 @@ impl<'a> From<&'a [u8]> for Segment {
 /// (we use [FractionalIndex]es to work with indexed sequences instead).
 ///
 /// - Regular `"key": value` means an assignment operation. This can be either a **CBOR**-compatible
-///   value (any value implementing `Into<ciborium::Value>` will work) or a special directive
+///   value (any value implementing `Into<crate::cbor::Value>` will work) or a special directive
 ///   prefixed with `@` (i.e. `@delete`).
 /// - Using brackets `{}` means stepping down in generated document tree path and applying many
 ///   operations under it.
@@ -121,7 +121,7 @@ impl<'a> From<&'a [u8]> for Segment {
 ///
 /// ```rust,ignore
 /// use cdoc::*;
-/// use ciborium::cbor;
+/// use crate::cbor::cbor;
 ///
 /// let db = Db::open(DbOptions::new("./path/to/db"))?;
 /// let mut tx = db.begin()?;
@@ -227,7 +227,7 @@ macro_rules! mutation {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ciborium::cbor;
+    use crate::cbor::cbor;
 
     #[test]
     fn assign_int() {
@@ -238,7 +238,7 @@ mod tests {
             m,
             Mutation::Compose(vec![Mutation::Apply(
                 Segment::Field("count".to_string()),
-                Op::Assign(ciborium::Value::from(42)),
+                Op::Assign(crate::cbor::Value::from(42)),
             )])
         );
     }
@@ -252,7 +252,7 @@ mod tests {
             m,
             Mutation::Compose(vec![Mutation::Apply(
                 Segment::Field("ratio".to_string()),
-                Op::Assign(ciborium::Value::from(2.5)),
+                Op::Assign(crate::cbor::Value::from(2.5)),
             )])
         );
     }
@@ -266,7 +266,7 @@ mod tests {
             m,
             Mutation::Compose(vec![Mutation::Apply(
                 Segment::Field("name".to_string()),
-                Op::Assign(ciborium::Value::Text("Alice".to_string())),
+                Op::Assign(crate::cbor::Value::Text("Alice".to_string())),
             )])
         );
     }
@@ -280,7 +280,7 @@ mod tests {
             m,
             Mutation::Compose(vec![Mutation::Apply(
                 Segment::Field("active".to_string()),
-                Op::Assign(ciborium::Value::Bool(true)),
+                Op::Assign(crate::cbor::Value::Bool(true)),
             )])
         );
     }
@@ -288,13 +288,13 @@ mod tests {
     #[test]
     fn assign_null() {
         let m = mutation!({
-            "empty": ciborium::Value::Null
+            "empty": crate::cbor::Value::Null
         });
         assert_eq!(
             m,
             Mutation::Compose(vec![Mutation::Apply(
                 Segment::Field("empty".to_string()),
-                Op::Assign(ciborium::Value::Null),
+                Op::Assign(crate::cbor::Value::Null),
             )])
         );
     }
@@ -308,9 +308,9 @@ mod tests {
             m,
             Mutation::Compose(vec![Mutation::Apply(
                 Segment::Field("metadata".to_string()),
-                Op::Assign(ciborium::Value::Map(vec![(
-                    ciborium::Value::Text("key".to_string()),
-                    ciborium::Value::Text("value".to_string()),
+                Op::Assign(crate::cbor::Value::Map(vec![(
+                    crate::cbor::Value::Text("key".to_string()),
+                    crate::cbor::Value::Text("value".to_string()),
                 )])),
             )])
         );
@@ -325,10 +325,10 @@ mod tests {
             m,
             Mutation::Compose(vec![Mutation::Apply(
                 Segment::Field("items".to_string()),
-                Op::Assign(ciborium::Value::Array(vec![
-                    ciborium::Value::Integer(1.into()),
-                    ciborium::Value::Integer(2.into()),
-                    ciborium::Value::Integer(3.into()),
+                Op::Assign(crate::cbor::Value::Array(vec![
+                    crate::cbor::Value::Integer(1.into()),
+                    crate::cbor::Value::Integer(2.into()),
+                    crate::cbor::Value::Integer(3.into()),
                 ])),
             )])
         );
@@ -368,7 +368,7 @@ mod tests {
                     vec![
                         Mutation::Apply(
                             Segment::Field("name".to_string()),
-                            Op::Assign(ciborium::Value::Text("Alice".to_string())),
+                            Op::Assign(crate::cbor::Value::Text("Alice".to_string())),
                         ),
                         Mutation::Apply(Segment::Field("age".to_string()), Op::Delete),
                     ],

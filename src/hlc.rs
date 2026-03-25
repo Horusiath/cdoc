@@ -195,10 +195,10 @@ mod tests {
         // extract the raw u64 via serde, then push it far into the future
         let mut buf = Vec::new();
         let future = Timestamp(before.0 + 100_000);
-        ciborium::into_writer(&future, &mut buf).unwrap();
+        crate::cbor::into_writer(&future, &mut buf).unwrap();
 
         // deserialize triggers Timestamp::sync internally
-        let remote: Timestamp = ciborium::de::from_reader(&buf[..]).unwrap();
+        let remote: Timestamp = crate::cbor::de::from_reader(&buf[..]).unwrap();
 
         let after = Timestamp::now();
         assert!(
