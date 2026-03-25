@@ -10,8 +10,43 @@ pub struct FractionalIndex<'a> {
 }
 
 impl<'a> FractionalIndex<'a> {
-    pub fn new(buf: &'a [u8]) -> Self {
+    /// Creates a new [FractionalIndex] out of the given byte sequence.
+    /// If the byte sequence contains invalid (unparseable) fractional index
+    /// a `None` value will be returned.
+    pub fn new(buf: &'a [u8]) -> Option<Self> {
+        if Self::is_valid(buf) {
+            Some(Self { buf })
+        } else {
+            None
+        }
+    }
+
+    pub fn new_unchecked(buf: &'a [u8]) -> Self {
         Self { buf }
+    }
+
+    /// Generates a new byte sequence that's a valid [FractionalIndex]. It will represent a position
+    /// `N` within another sequential collection, defined by its fractional indices, which is in
+    /// between the `prev` (`N-1`) and `next` (`N+1`) indices.
+    pub fn between(
+        prev: Option<&FractionalIndex<'a>>,
+        next: Option<&FractionalIndex<'a>>,
+        pid: PID,
+    ) -> Vec<u8> {
+        let lo = prev.map(|prev| prev.buf).unwrap_or(&[]);
+        let hi = next.map(|prev| prev.buf).unwrap_or(&[]);
+        let mut buf = Vec::with_capacity(lo.len() + 8);
+        write_fractional_index(&mut buf, lo, hi, pid).unwrap();
+        buf
+    }
+
+    pub fn is_valid(buf: &[u8]) -> bool {
+        let mut segments = Segments::new(buf);
+        while let Some(_) = segments.next() {
+            // parse all segments
+        }
+        // at the end the segments buffer should be empty
+        segments.bytes.is_empty()
     }
 
     #[inline]
@@ -46,7 +81,7 @@ impl<'a> FractionalIndex<'a> {
         if i == 0 {
             None
         } else {
-            Some((Self::new(&bytes[..i]), i))
+            Some((Self::new_unchecked(&bytes[..i]), i))
         }
     }
 }
@@ -249,7 +284,7 @@ mod tests {
         assert!(result.as_slice() < hi.as_slice());
 
         // should stay at the same level, not descend into a new segment
-        let segments: Vec<_> = FractionalIndex::new(&result).segments().collect();
+        let segments: Vec<_> = FractionalIndex::new_unchecked(&result).segments().collect();
         assert_eq!(segments.len(), 1);
         assert_eq!(segments[0], seg(1, 4));
     }

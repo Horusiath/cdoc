@@ -146,7 +146,7 @@ mod tests {
                 match seg {
                     TestSegment::Field(f) => writer.push_field(f).unwrap(),
                     TestSegment::Index(idx) => {
-                        writer.push_index(FractionalIndex::new(idx)).unwrap();
+                        writer.push_index(FractionalIndex::new_unchecked(idx)).unwrap();
                     }
                 }
             }

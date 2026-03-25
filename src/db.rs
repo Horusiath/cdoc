@@ -1,11 +1,19 @@
+use crate::ReadWriteTransaction;
+use crate::transaction::ReadOnlyTransaction;
 use std::path::{Path, PathBuf};
 
-pub struct Db {
-
-}
+pub struct Db {}
 
 impl Db {
     pub fn open(options: DbOptions) -> crate::Result<Self> {
+        todo!()
+    }
+
+    pub fn begin_readonly(&self) -> crate::Result<ReadOnlyTransaction> {
+        todo!()
+    }
+
+    pub fn begin(&self) -> crate::Result<ReadWriteTransaction> {
         todo!()
     }
 }
