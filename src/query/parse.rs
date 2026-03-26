@@ -58,10 +58,10 @@ impl<'a> Parser<'a> {
             return false;
         }
         // Check word boundary: next byte must not be alphanumeric or underscore.
-        if let Some(&b) = self.input.get(end) {
-            if b.is_ascii_alphanumeric() || b == b'_' {
-                return false;
-            }
+        if let Some(&b) = self.input.get(end)
+            && (b.is_ascii_alphanumeric() || b == b'_')
+        {
+            return false;
         }
         self.pos = end;
         true

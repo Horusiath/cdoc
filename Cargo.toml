@@ -6,10 +6,7 @@ edition = "2024"
 [dependencies]
 thiserror = "2.0"
 memmap2 = "0.9"
-bytes = { version = "1.11", features = ["serde"] }
-smallvec = { version = "2.0.0-alpha.12", features = ["bytes", "serde"] }
 zerocopy = { version = "0.8", features = ["derive", "simd"] }
-bitflags = "2.11"
 fastrand = "2.3"
 crc32fast = "1.5"
 serde = { version = "1.0", features = ["derive"] }

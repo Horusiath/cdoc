@@ -42,7 +42,7 @@ impl<'a> FractionalIndex<'a> {
 
     pub fn is_valid(buf: &[u8]) -> bool {
         let mut segments = Segments::new(buf);
-        while let Some(_) = segments.next() {
+        for _ in segments.by_ref() {
             // parse all segments
         }
         // at the end the segments buffer should be empty
@@ -92,7 +92,7 @@ impl<'a> Display for FractionalIndex<'a> {
         if let Some(s) = segments.next() {
             write!(f, "{}", s)?;
         }
-        while let Some(s) = segments.next() {
+        for s in segments {
             write!(f, ":{}", s)?;
         }
         Ok(())

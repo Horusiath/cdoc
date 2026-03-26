@@ -111,7 +111,7 @@ impl Segment {
             Segment::Field(field) => w.push_field(field),
             Segment::FractionalIndex(index) => {
                 let findex = FractionalIndex::new(index)
-                    .ok_or_else(|| crate::Error::Path(PathError::InvalidIndex))?;
+                    .ok_or(crate::Error::Path(PathError::InvalidIndex))?;
                 w.push_index(findex)
             }
         }

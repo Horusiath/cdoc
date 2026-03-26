@@ -38,7 +38,7 @@ impl<W: Write> PathWriter<W> {
     /// ASCII characters from `0-31` range are not allowed.
     pub fn push_field(&mut self, field: &str) -> crate::Result<()> {
         let f = Field::new(field)?;
-        let len = 1 + f.as_bytes().len();
+        let len = 1 + f.len();
         self.ensure_capacity(len)?;
         self.writer.write_all(&[DELIMITER])?;
         self.writer.write_all(f.as_bytes())?;
