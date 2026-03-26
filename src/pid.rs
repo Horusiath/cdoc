@@ -1,4 +1,4 @@
-use crate::U32;
+use crate::BE32;
 use std::fmt::{Display, Formatter};
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
@@ -19,21 +19,21 @@ use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
     Immutable,
     KnownLayout,
 )]
-pub struct PID(pub(crate) crate::U32);
+pub struct PID(pub(crate) crate::BE32);
 
 impl PID {
     pub fn parse(bytes: &[u8]) -> Option<Self> {
-        let pid = *crate::U32::ref_from_bytes(bytes).ok()?;
-        if pid == U32::new(0) {
+        let pid = *crate::BE32::ref_from_bytes(bytes).ok()?;
+        if pid == BE32::new(0) {
             None
         } else {
             Some(PID(pid))
         }
     }
 
-    pub fn new<C: Into<crate::U32>>(pid: C) -> Option<Self> {
+    pub fn new<C: Into<crate::BE32>>(pid: C) -> Option<Self> {
         let pid = pid.into();
-        if pid == U32::new(0) {
+        if pid == BE32::new(0) {
             None
         } else {
             Some(PID(pid))
@@ -41,7 +41,7 @@ impl PID {
     }
 
     pub fn random() -> Self {
-        PID(crate::U32::new(fastrand::u32(1..)))
+        PID(crate::BE32::new(fastrand::u32(1..)))
     }
 }
 

@@ -66,6 +66,7 @@ Each SSTable ends with footer. Footer contains following information:
 - Bloom filter: variable size, counted as `filter_size = num_keys × 10 / 8` bytes.
 - File offset where does the block index starts: 8 bytes (little endian).
 - File offset where does the bloom filter starts: 8 bytes (little endian).
+- Min/max timestamps for entries in entire file: 2 * 8 bytes.
 - Number of keys: 8 bytes (little endian).
 - Version: 4 bytes (little endian).
 - CRC32 checksum of the entire file: 4 bytes - it's necessary since the disk corruption could hit a footer.

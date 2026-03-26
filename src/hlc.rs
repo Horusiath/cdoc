@@ -22,7 +22,7 @@ use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
     Immutable,
     KnownLayout,
 )]
-pub struct Timestamp(crate::U64);
+pub struct Timestamp(crate::BE64);
 
 static COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -32,7 +32,7 @@ impl Timestamp {
 
     #[inline]
     pub const fn new(unix_millis: u64) -> Self {
-        Timestamp(crate::U64::new(unix_millis))
+        Timestamp(crate::BE64::new(unix_millis))
     }
 
     pub fn now() -> Self {

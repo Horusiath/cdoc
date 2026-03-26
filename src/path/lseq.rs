@@ -63,7 +63,7 @@ impl<'a> FractionalIndex<'a> {
         let mut b = bytes;
         while !b.is_empty() {
             // first try to read PID - stop if invalid (e.g. 0x00 delimiter)
-            match crate::U32::read_from(b) {
+            match crate::BE32::read_from(b) {
                 None => break,
                 Some((pid, n)) => {
                     if PID::new(pid).is_none() {
@@ -106,7 +106,7 @@ pub struct Segment {
 }
 
 impl Segment {
-    const MAX: Self = Segment::new(PID(crate::U32::MAX_VALUE), u32::MAX);
+    const MAX: Self = Segment::new(PID(crate::BE32::MAX_VALUE), u32::MAX);
 
     pub const fn new(pid: PID, seq: u32) -> Self {
         Self { pid, seq }
@@ -114,7 +114,7 @@ impl Segment {
 
     /// Parses next segment from the sequence.
     pub fn parse(mut bytes: &[u8]) -> Option<(Self, &[u8])> {
-        let (pid, n) = crate::U32::read_from(bytes)?;
+        let (pid, n) = crate::BE32::read_from(bytes)?;
         let pid = PID::new(pid)?;
         bytes = &bytes[n..];
         let (seq, n) = u32::read_from(bytes)?;

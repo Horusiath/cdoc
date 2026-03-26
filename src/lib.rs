@@ -19,10 +19,15 @@ pub use pid::PID;
 pub use query::{Filter, Query, Select};
 pub use transaction::{ReadOnlyTransaction, ReadWriteTransaction};
 
-pub type U16 = zerocopy::big_endian::U16;
-pub type U32 = zerocopy::big_endian::U32;
-pub type U64 = zerocopy::big_endian::U64;
-pub type U128 = zerocopy::big_endian::U128;
+pub type BE16 = zerocopy::big_endian::U16;
+pub type BE32 = zerocopy::big_endian::U32;
+pub type BE64 = zerocopy::big_endian::U64;
+pub type BE128 = zerocopy::big_endian::U128;
+
+pub type LE16 = zerocopy::little_endian::U16;
+pub type LE32 = zerocopy::little_endian::U32;
+pub type LE64 = zerocopy::little_endian::U64;
+pub type LE128 = zerocopy::little_endian::U128;
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
