@@ -42,7 +42,7 @@ pub enum Terminator {
     /// Distributed CRDT counter segment.
     Counter(crate::PID) = TERMINATOR_COUNTER,
     /// Last-Write Wins field.
-    LWW = TERMINATOR_LWW,
+    Lww = TERMINATOR_LWW,
     /// Chunked field (also resolved as last-write wins).
     Chunked(u64) = TERMINATOR_CHUNKED,
 }
@@ -81,7 +81,7 @@ impl<'a> Deref for Field<'a> {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        &self.0
+        self.0
     }
 }
 
@@ -107,7 +107,6 @@ mod tests {
     use super::write::PathWriter;
     use super::*;
     use crate::pid::PID;
-    use crate::varint::VarInt;
     use proptest::prelude::*;
 
     fn valid_field() -> impl Strategy<Value = String> {

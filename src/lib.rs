@@ -3,6 +3,7 @@ use crate::path::PathError;
 mod db;
 mod hlc;
 mod mutation;
+#[allow(dead_code)]
 mod path;
 mod pid;
 mod query;
@@ -43,6 +44,8 @@ pub enum Error {
     Cbor(#[from] crate::cbor::ser::Error<std::io::Error>),
     #[error(transparent)]
     Query(#[from] crate::query::QueryError),
+    #[error("data corruption: {0}")]
+    Corruption(String),
 }
 
 impl<T> From<zerocopy::CastError<&[u8], T>> for Error {

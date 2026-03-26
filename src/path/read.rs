@@ -50,7 +50,7 @@ impl<'a> PathReader<'a> {
     }
 
     fn read_fractional_index(&mut self) -> crate::Result<FractionalIndex<'a>, PathError> {
-        match FractionalIndex::from_bytes(&self.buf) {
+        match FractionalIndex::from_bytes(self.buf) {
             None => Err(PathError::InvalidIndex),
             Some((index, read)) => {
                 self.buf = &self.buf[read..];
@@ -79,7 +79,7 @@ impl<'a> Iterator for PathReader<'a> {
                 }
                 TERMINATOR_LWW => {
                     self.buf = &[]; // end of the path
-                    Some(Ok(PathSegment::Tail(Terminator::LWW)))
+                    Some(Ok(PathSegment::Tail(Terminator::Lww)))
                 }
                 TERMINATOR_COUNTER => {
                     self.buf = &self.buf[1..];

@@ -78,9 +78,9 @@ pub enum QueryError {
 ///   - `skip: {number}` skips a number of entries before moving on.
 ///   - `take: {number}` returns at most a number of entries.
 ///   - `after: {string|fractional_index}` puts a cursor position at a given entry defined by either
-///      string field or [FractionalIndex] and defines direction as moving forward.
+///     string field or [FractionalIndex] and defines direction as moving forward.
 ///   - `before: {string|fractional_index}` puts a cursor position at a given entry defined by either
-///      string field or [FractionalIndex] and defines direction as moving backward.
+///     string field or [FractionalIndex] and defines direction as moving backward.
 ///
 /// # Example
 ///

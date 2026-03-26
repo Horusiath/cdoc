@@ -99,7 +99,6 @@ dependencies = [
  "memmap2",
  "parking_lot",
  "proptest",
- "rart",
  "serde",
  "smallvec 2.0.0-alpha.12",
  "tempfile",
@@ -457,12 +456,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "paste"
-version = "1.0.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
-
-[[package]]
 name = "ppv-lite86"
 version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -616,16 +609,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rart"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc146e0ff42e2e9e600003d63f43c17d98615762b295c3eb23aa559cad4f4ac7"
-dependencies = [
- "num-traits",
- "simdeez",
-]
-
-[[package]]
 name = "redox_syscall"
 version = "0.5.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -731,16 +714,6 @@ name = "shlex"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
-
-[[package]]
-name = "simdeez"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e08cb8b1603106d47fbd32f34f5e4f332bb07c02c7b2c6ebad893e6f6ba53f9e"
-dependencies = [
- "cfg-if",
- "paste",
-]
 
 [[package]]
 name = "smallvec"

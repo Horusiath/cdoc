@@ -1,8 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(cargo test --  2>&1)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(cargo build 2>&1)",
+      "Bash(cargo clippy --all-features --all-targets -- --deny=warnings 2>&1)",
+      "Bash(cargo test 2>&1)"
     ]
   }
 }
