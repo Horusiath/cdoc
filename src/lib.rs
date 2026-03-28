@@ -1,16 +1,16 @@
 use crate::path::PathError;
 
 mod db;
-mod hlc;
+pub mod hlc;
 mod mutation;
 #[allow(dead_code)]
 pub mod path;
 mod pid;
 mod query;
-pub(crate) mod sst;
+pub mod sst;
 mod transaction;
 mod varint;
-pub(crate) mod wal;
+pub mod wal;
 
 pub use ciborium as cbor;
 pub use db::{Db, DbOptions};

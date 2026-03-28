@@ -1,10 +1,10 @@
 pub(crate) mod compaction;
-pub(crate) mod memtable;
-mod read;
-mod write;
+pub mod memtable;
+pub mod read;
+pub mod write;
 
-pub(crate) use read::SSTableReader;
-pub(crate) use write::SSTableWriter;
+pub use read::SSTableReader;
+pub use write::SSTableWriter;
 
 use crate::hlc::Timestamp;
 use crate::{LE32, LE64};

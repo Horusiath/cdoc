@@ -11,7 +11,7 @@ use zerocopy::IntoBytes;
 /// - **Commit**: `[key_len i16 LE (sign set)][value_len u16 LE][timestamp u64 BE][key][value][crc u32 LE]`
 ///
 /// CRC is rolling within a transaction (starts at 0, accumulates key+value bytes).
-pub(crate) struct WriteAheadLog {
+pub struct WriteAheadLog {
     file: File,
     /// File position of the byte right after the last commit record.
     last_commit_pos: u64,

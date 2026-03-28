@@ -102,5 +102,10 @@ fn read_path_20_levels(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, read_path_1_level, read_path_4_levels, read_path_20_levels);
+criterion_group!(
+    benches,
+    read_path_1_level,
+    read_path_4_levels,
+    read_path_20_levels
+);
 criterion_main!(benches);

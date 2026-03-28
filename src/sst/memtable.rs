@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 /// In-memory buffer for recent writes. Backed by a sorted `BTreeMap` so that
 /// flush to SSTable can iterate in key order and prefix scans are efficient.
 #[derive(Clone)]
-pub(crate) struct MemTable {
+pub struct MemTable {
     entries: BTreeMap<Vec<u8>, Vec<u8>>,
     /// Approximate byte size of all keys + values stored.
     size: usize,

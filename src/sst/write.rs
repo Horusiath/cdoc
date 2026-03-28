@@ -4,7 +4,7 @@ use crate::{LE32, LE64};
 use std::io::Write;
 
 /// Builds an SSTable from pre-sorted key-value entries.
-pub(crate) struct SSTableWriter<W: Write> {
+pub struct SSTableWriter<W: Write> {
     writer: W,
     /// Accumulator for the current block being written.
     block_buf: Vec<u8>,

@@ -29,3 +29,7 @@ harness = false
 [[bench]]
 name = "path_read"
 harness = false
+
+[[bench]]
+name = "lsm"
+harness = false

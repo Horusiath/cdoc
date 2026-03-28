@@ -5,7 +5,7 @@ use std::path::Path;
 use zerocopy::FromBytes;
 
 /// Memory-mapped reader for an SSTable file.
-pub(crate) struct SSTableReader {
+pub struct SSTableReader {
     mmap: Mmap,
     footer: SSTableFooter,
     /// Parsed block index: (first_key, offset).
