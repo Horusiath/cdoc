@@ -3,8 +3,8 @@ use std::ops::Deref;
 
 pub mod lseq;
 mod lww;
-pub(crate) mod read;
-pub(crate) mod write;
+pub mod read;
+pub mod write;
 
 const DELIMITER: u8 = 0;
 const TERMINATOR_COUNTER: u8 = 0b11101;

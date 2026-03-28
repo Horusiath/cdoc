@@ -4,7 +4,7 @@ mod db;
 mod hlc;
 mod mutation;
 #[allow(dead_code)]
-mod path;
+pub mod path;
 mod pid;
 mod query;
 pub(crate) mod sst;

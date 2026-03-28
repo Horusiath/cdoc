@@ -20,3 +20,12 @@ tracing = "0.1"
 [dev-dependencies]
 tempfile = "3"
 proptest = "1"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "query_parse"
+harness = false
+
+[[bench]]
+name = "path_read"
+harness = false
