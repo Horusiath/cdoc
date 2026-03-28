@@ -78,9 +78,11 @@ impl Db {
         let wal_path = wal_dir.join("current.wal");
         let mut memtable = MemTable::new();
         if wal_path.exists() {
-            let entries = WriteAheadLog::replay(&wal_path)?;
-            for (key, value) in entries {
-                memtable.insert(&key, value);
+            let records = WriteAheadLog::replay(&wal_path)?;
+            for record in records {
+                if !record.key.is_empty() {
+                    memtable.insert(record.key, record.value);
+                }
             }
         }
 

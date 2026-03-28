@@ -15,6 +15,7 @@ parking_lot = { version = "0.12", features = ["arc_lock"] }
 chrono = { version = "0.4", features = ["serde"] }
 ciborium = { version = "0.2", features = [] }
 fastbloom-rs = "0.5"
+tracing = "0.1"
 
 [dev-dependencies]
 tempfile = "3"

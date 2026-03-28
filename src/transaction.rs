@@ -73,7 +73,7 @@ impl ReadWriteTransaction {
     /// Inserts a key-value pair into this transaction.
     pub fn insert(&mut self, key: &[u8], value: &[u8]) -> crate::Result<()> {
         if let Some(ref mut g) = self.guard {
-            g.wal.write_update(key, value)?;
+            g.wal.write_record(key, value, None)?;
         }
         self.fork.insert(key, value.to_vec());
         Ok(())

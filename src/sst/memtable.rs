@@ -18,7 +18,8 @@ impl MemTable {
     }
 
     /// Inserts a key-value pair. Returns the previous value if the key already existed.
-    pub fn insert(&mut self, key: &[u8], value: Vec<u8>) -> Option<Vec<u8>> {
+    pub fn insert<K: Into<Vec<u8>>>(&mut self, key: K, value: Vec<u8>) -> Option<Vec<u8>> {
+        let key = key.into();
         let added = key.len() + value.len();
         let old = self.entries.insert(key.to_vec(), value);
         if let Some(ref old_val) = old {

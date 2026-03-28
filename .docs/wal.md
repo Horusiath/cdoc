@@ -11,9 +11,9 @@ The general record structure is:
 - `I16` (little endian) describing key length. For **update records** the sign bit is always `0`. For **commit
   records** it's always `1`.
 - `U16` (little endian) describing value length. For deleted entries this value is `0`.
-- If it's a **commit record** the next 8 bytes (`U64` big endian) is a HLC timestamp of the committed transaction.
 - key bytes
 - value bytes
+- If it's a **commit record** the next 8 bytes (`U64` big endian) is a HLC timestamp of the committed transaction.
 - `U32` (little endian) CRC32 checksum of the record. It's composed as a rolling update: a checksum of previous
   record in the transaction (0 if it's a first record of the transaction) updated with key and value bytes of a
   current record.

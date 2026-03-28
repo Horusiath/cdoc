@@ -2,6 +2,7 @@ use crate::hlc::Timestamp;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
+use zerocopy::IntoBytes;
 
 /// Append-only Write-Ahead Log.
 ///
@@ -19,6 +20,7 @@ pub(crate) struct WriteAheadLog {
 }
 
 impl WriteAheadLog {
+    const COMMIT_BIT: u16 = 1 << 15;
     /// Creates a new, empty WAL file at `path`.
     pub fn create(path: &Path) -> crate::Result<Self> {
         let file = OpenOptions::new()
@@ -35,11 +37,14 @@ impl WriteAheadLog {
     }
 
     /// Replays a WAL file, returning only entries from committed transactions.
-    pub fn replay(path: &Path) -> crate::Result<Vec<(Vec<u8>, Vec<u8>)>> {
+    pub fn replay(path: &Path) -> crate::Result<Vec<WalRecord>> {
+        //TODO: async IO
+        //TODO: change that into async stream
+
         let mut file = File::open(path)?;
         let file_len = file.metadata()?.len();
-        let mut all_committed = Vec::new();
-        let mut pending = Vec::new();
+        let mut records = Vec::new();
+        let mut last_commit_pos = 0;
         let mut rolling_crc: u32 = 0;
 
         loop {
@@ -53,13 +58,9 @@ impl WriteAheadLog {
             if file.read_exact(&mut buf2).is_err() {
                 break;
             }
-            let raw_key_len = i16::from_le_bytes(buf2);
-            let is_commit = raw_key_len < 0;
-            let key_len = if is_commit {
-                (raw_key_len & 0x7FFF) as usize
-            } else {
-                raw_key_len as usize
-            };
+            let key_len = u16::from_le_bytes(buf2);
+            let is_commit = key_len & Self::COMMIT_BIT != 0;
+            let key_len = (key_len & (!Self::COMMIT_BIT)) as usize;
 
             // Read value_len (u16 LE)
             if file.read_exact(&mut buf2).is_err() {
@@ -67,101 +68,106 @@ impl WriteAheadLog {
             }
             let value_len = u16::from_le_bytes(buf2) as usize;
 
-            // If commit record, read timestamp (u64 BE) — we don't use it during replay
-            if is_commit {
-                let mut ts_buf = [0u8; 8];
-                if file.read_exact(&mut ts_buf).is_err() {
+            // buf len: key_len + value_len + timestamp_len (if commit) + crc32_len
+            // create an uninitialized buffer
+            let mut key = Vec::with_capacity(key_len);
+            unsafe { key.set_len(key_len) };
+            let mut value = Vec::with_capacity(value_len);
+            unsafe { value.set_len(value_len) };
+
+            // read the rest of the record
+            if key_len != 0 {
+                if file.read_exact(&mut key).is_err() {
+                    break;
+                }
+                if file.read_exact(&mut value).is_err() {
                     break;
                 }
             }
+            let timestamp = if is_commit {
+                let mut buf = [0u8; 8];
+                if file.read_exact(&mut buf).is_err() {
+                    break;
+                }
+                Some(Timestamp::new(u64::from_be_bytes(buf)))
+            } else {
+                None
+            };
 
-            // Read key
-            let mut key = vec![0u8; key_len];
-            if file.read_exact(&mut key).is_err() {
+            let mut buf = [0u8; 4];
+            if file.read_exact(&mut buf).is_err() {
                 break;
             }
+            let verify_crc = u32::from_le_bytes(buf);
 
-            // Read value
-            let mut value = vec![0u8; value_len];
-            if file.read_exact(&mut value).is_err() {
-                break;
-            }
-
-            // Read CRC (u32 LE)
-            let mut crc_buf = [0u8; 4];
-            if file.read_exact(&mut crc_buf).is_err() {
-                break;
-            }
-            let stored_crc = u32::from_le_bytes(crc_buf);
-
-            // Verify rolling CRC
             let mut hasher = crc32fast::Hasher::new_with_initial(rolling_crc);
             hasher.update(&key);
             hasher.update(&value);
-            let computed_crc = hasher.finalize();
+            if let Some(timestamp) = &timestamp {
+                hasher.update(timestamp.as_bytes());
+            }
+            let crc = hasher.finalize();
 
-            if computed_crc != stored_crc {
+            if crc != verify_crc {
                 // Corruption — stop replay, discard pending
                 break;
             }
 
-            rolling_crc = computed_crc;
+            rolling_crc = crc;
 
             // Only add entries with actual data (commit-only records have no key/value).
-            if key_len > 0 || value_len > 0 {
-                pending.push((key, value));
-            }
+            records.push(WalRecord::new(key, value, timestamp));
 
             if is_commit {
-                all_committed.append(&mut pending);
+                last_commit_pos = records.len();
                 rolling_crc = 0;
             }
         }
 
-        Ok(all_committed)
+        records.truncate(last_commit_pos);
+        Ok(records)
+    }
+
+    pub fn write_commit(&mut self, ts: Timestamp) -> crate::Result<()> {
+        self.write_record(&[], &[], Some(&ts))
     }
 
     /// Appends an update record for the current transaction.
-    pub fn write_update(&mut self, key: &[u8], value: &[u8]) -> crate::Result<()> {
-        let key_len = key.len() as i16; // sign bit clear → update
+    pub fn write_record(
+        &mut self,
+        key: &[u8],
+        value: &[u8],
+        commit: Option<&Timestamp>,
+    ) -> crate::Result<()> {
+        let mut key_len = key.len() as u16; // sign bit clear → update
+        if commit.is_some() {
+            key_len |= Self::COMMIT_BIT;
+        }
         self.file.write_all(&key_len.to_le_bytes())?;
         self.file.write_all(&(value.len() as u16).to_le_bytes())?;
-        self.file.write_all(key)?;
-        self.file.write_all(value)?;
 
         let mut hasher = crc32fast::Hasher::new_with_initial(self.rolling_crc);
+
+        self.file.write_all(key)?;
         hasher.update(key);
+        self.file.write_all(value)?;
         hasher.update(value);
+
+        if let Some(ts) = commit {
+            self.file.write_all(ts.as_bytes())?;
+            hasher.update(ts.as_bytes());
+        }
+
         self.rolling_crc = hasher.finalize();
 
         self.file.write_all(&self.rolling_crc.to_le_bytes())?;
         self.file.flush()?;
-        Ok(())
-    }
 
-    /// Appends a commit record, marking the end of the current transaction.
-    pub fn write_commit(&mut self, ts: Timestamp) -> crate::Result<()> {
-        // Commit record: key_len=0 with sign bit set → i16 = -32768 (0x8000)
-        // sign bit set means commit record, remaining bits = key length (0 here)
-        let raw: i16 = i16::MIN; // 0x8000 — commit marker with 0-length key
-        self.file.write_all(&raw.to_le_bytes())?;
-        self.file.write_all(&0u16.to_le_bytes())?; // value_len = 0
+        if commit.is_some() {
+            self.last_commit_pos = self.file.stream_position()?;
+            self.rolling_crc = 0;
+        }
 
-        // timestamp (u64 BE)
-        let ts_bytes: [u8; 8] = zerocopy::IntoBytes::as_bytes(&ts)
-            .try_into()
-            .map_err(|_| crate::Error::Corruption("timestamp serialization failed".into()))?;
-        self.file.write_all(&ts_bytes)?;
-
-        // empty key + empty value → CRC over nothing new
-        let hasher = crc32fast::Hasher::new_with_initial(self.rolling_crc);
-        // no key/value bytes to update
-        let crc = hasher.finalize();
-        self.file.write_all(&crc.to_le_bytes())?;
-        self.file.flush()?;
-
-        self.last_commit_pos = self.file.stream_position()?;
-        self.rolling_crc = 0;
         Ok(())
     }
 
@@ -184,6 +190,28 @@ impl WriteAheadLog {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WalRecord {
+    pub key: Vec<u8>,
+    pub value: Vec<u8>,
+    pub timestamp: Option<Timestamp>,
+}
+
+impl WalRecord {
+    #[inline]
+    pub fn new<B1, B2>(key: B1, value: B2, timestamp: Option<Timestamp>) -> Self
+    where
+        B1: Into<Vec<u8>>,
+        B2: Into<Vec<u8>>,
+    {
+        WalRecord {
+            key: key.into(),
+            value: value.into(),
+            timestamp,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -193,17 +221,21 @@ mod tests {
         let dir = tempfile::tempdir()?;
         let path = dir.path().join("test.wal");
 
+        let timestamp = Timestamp::now();
         {
             let mut wal = WriteAheadLog::create(&path)?;
-            wal.write_update(b"key1", b"val1")?;
-            wal.write_update(b"key2", b"val2")?;
-            wal.write_commit(Timestamp::now())?;
+            wal.write_record(b"key1", b"val1", None)?;
+            wal.write_record(b"key2", b"val2", Some(&timestamp))?;
         }
 
-        let entries = WriteAheadLog::replay(&path)?;
-        assert_eq!(entries.len(), 2);
-        assert_eq!(entries[0], (b"key1".to_vec(), b"val1".to_vec()));
-        assert_eq!(entries[1], (b"key2".to_vec(), b"val2".to_vec()));
+        let records = WriteAheadLog::replay(&path)?;
+        assert_eq!(
+            records,
+            vec![
+                WalRecord::new(b"key1", b"val1", None),
+                WalRecord::new(b"key2", b"val2", Some(timestamp)),
+            ]
+        );
         Ok(())
     }
 
@@ -212,17 +244,23 @@ mod tests {
         let dir = tempfile::tempdir()?;
         let path = dir.path().join("test.wal");
 
+        let timestamp = Timestamp::now();
         {
             let mut wal = WriteAheadLog::create(&path)?;
-            wal.write_update(b"key1", b"val1")?;
-            wal.write_commit(Timestamp::now())?;
+            wal.write_record(b"key1", b"val1", None)?;
+            wal.write_record(&[], &[], Some(&timestamp))?;
             // second transaction never committed
-            wal.write_update(b"key2", b"val2")?;
+            wal.write_record(b"key2", b"val2", None)?;
         }
 
-        let entries = WriteAheadLog::replay(&path)?;
-        assert_eq!(entries.len(), 1);
-        assert_eq!(entries[0].0, b"key1");
+        let records = WriteAheadLog::replay(&path)?;
+        assert_eq!(
+            records,
+            vec![
+                WalRecord::new(b"key1", b"val1", None),
+                WalRecord::new(b"", b"", Some(timestamp)),
+            ]
+        );
         Ok(())
     }
 
@@ -231,17 +269,23 @@ mod tests {
         let dir = tempfile::tempdir()?;
         let path = dir.path().join("test.wal");
 
+        let timestamp = Timestamp::now();
         {
             let mut wal = WriteAheadLog::create(&path)?;
-            wal.write_update(b"k1", b"v1")?;
-            wal.write_commit(Timestamp::now())?;
-            wal.write_update(b"k2", b"v2")?;
+            wal.write_record(b"k1", b"v1", None)?;
+            wal.write_record(&[], &[], Some(&timestamp))?;
+            wal.write_record(b"k2", b"v2", None)?;
             wal.truncate_to_last_commit()?;
         }
 
-        let entries = WriteAheadLog::replay(&path)?;
-        assert_eq!(entries.len(), 1);
-        assert_eq!(entries[0].0, b"k1");
+        let records = WriteAheadLog::replay(&path)?;
+        assert_eq!(
+            records,
+            vec![
+                WalRecord::new(b"k1", b"v1", None),
+                WalRecord::new(b"", b"", Some(timestamp)),
+            ]
+        );
         Ok(())
     }
 
@@ -252,13 +296,13 @@ mod tests {
 
         {
             let mut wal = WriteAheadLog::create(&path)?;
-            wal.write_update(b"k1", b"v1")?;
+            wal.write_record(b"k1", b"v1", None)?;
             wal.write_commit(Timestamp::now())?;
             wal.reset()?;
         }
 
-        let entries = WriteAheadLog::replay(&path)?;
-        assert!(entries.is_empty());
+        let records = WriteAheadLog::replay(&path)?;
+        assert!(records.is_empty());
         Ok(())
     }
 }
