@@ -1,3 +1,4 @@
+use crate::Mutation;
 use crate::db::{DbInner, ReadableState, WriterState};
 use crate::hlc::Timestamp;
 use crate::sst::memtable::MemTable;
@@ -68,6 +69,11 @@ impl ReadWriteTransaction {
             snapshot,
             finished: false,
         }
+    }
+
+    /// Execute given mutation descriptor over the existing database.
+    pub fn execute(&mut self, mutation: Mutation) -> crate::Result<()> {
+        mutation.for_each(|key, value| self.insert(&key, &value))
     }
 
     /// Inserts a key-value pair into this transaction.

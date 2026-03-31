@@ -43,7 +43,7 @@ impl Mutation {
 
     pub fn for_each<F>(&self, mut f: F) -> crate::Result<()>
     where
-        F: FnMut(Vec<u8>, Vec<u8>),
+        F: FnMut(Vec<u8>, Vec<u8>) -> crate::Result<()>,
     {
         let mut w = PathWriter::new(Vec::new(), 0);
         self.for_each_internal(&mut f, &mut w)
@@ -51,18 +51,18 @@ impl Mutation {
 
     fn for_each_internal<F>(&self, f: &mut F, w: &mut PathWriter<Vec<u8>>) -> crate::Result<()>
     where
-        F: FnMut(Vec<u8>, Vec<u8>),
+        F: FnMut(Vec<u8>, Vec<u8>) -> crate::Result<()>,
     {
         match self {
             Mutation::Apply(segment, Op::Delete) => {
                 segment.write(w)?;
-                f(w.clone().lww()?, Vec::new());
+                f(w.clone().lww()?, Vec::new())?;
             }
             Mutation::Apply(segment, Op::Assign(value)) => {
                 segment.write(w)?;
                 let mut buf = Vec::new();
                 crate::cbor::into_writer(value, &mut buf)?;
-                f(w.clone().lww()?, buf);
+                f(w.clone().lww()?, buf)?;
             }
             Mutation::Nested(segment, mutations) => {
                 segment.write(w)?;
@@ -480,7 +480,7 @@ mod tests {
     fn for_each_field_assign() {
         let m = mutation!({ "name": "Alice" });
         let mut results = Vec::new();
-        m.for_each(|path, value| results.push((path, value)))
+        m.for_each(|path, value| Ok(results.push((path, value))))
             .unwrap();
 
         let seg = Segment::Field("name".to_string());
@@ -496,7 +496,7 @@ mod tests {
     fn for_each_field_delete() {
         let m = mutation!({ "name": @delete });
         let mut results = Vec::new();
-        m.for_each(|path, value| results.push((path, value)))
+        m.for_each(|path, value| Ok(results.push((path, value))))
             .unwrap();
 
         let seg = Segment::Field("name".to_string());
@@ -512,7 +512,7 @@ mod tests {
         let seg = Segment::FractionalIndex(idx);
         let m = Mutation::Apply(seg.clone(), Op::Assign(crate::cbor::Value::from(42)));
         let mut results = Vec::new();
-        m.for_each(|path, value| results.push((path, value)))
+        m.for_each(|path, value| Ok(results.push((path, value))))
             .unwrap();
 
         assert_eq!(results.len(), 1);
@@ -527,7 +527,7 @@ mod tests {
         let seg = Segment::FractionalIndex(idx);
         let m = Mutation::Apply(seg.clone(), Op::Delete);
         let mut results = Vec::new();
-        m.for_each(|path, value| results.push((path, value)))
+        m.for_each(|path, value| Ok(results.push((path, value))))
             .unwrap();
 
         assert_eq!(results.len(), 1);
@@ -543,7 +543,7 @@ mod tests {
             }
         });
         let mut results = Vec::new();
-        m.for_each(|path, value| results.push((path, value)))
+        m.for_each(|path, value| Ok(results.push((path, value))))
             .unwrap();
 
         let users = Segment::Field("users".to_string());
@@ -570,7 +570,7 @@ mod tests {
             )],
         );
         let mut results = Vec::new();
-        m.for_each(|path, value| results.push((path, value)))
+        m.for_each(|path, value| Ok(results.push((path, value))))
             .unwrap();
 
         assert_eq!(results.len(), 1);
@@ -586,7 +586,7 @@ mod tests {
             "active": true
         });
         let mut results = Vec::new();
-        m.for_each(|path, value| results.push((path, value)))
+        m.for_each(|path, value| Ok(results.push((path, value))))
             .unwrap();
 
         let name = Segment::Field("name".to_string());
@@ -616,7 +616,7 @@ mod tests {
             }
         });
         let mut results = Vec::new();
-        m.for_each(|path, value| results.push((path, value)))
+        m.for_each(|path, value| Ok(results.push((path, value))))
             .unwrap();
 
         let users = Segment::Field("users".to_string());
